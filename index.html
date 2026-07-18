@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta name="v" content="NEW-175517">
+<meta name="v" content="MOBILE-FIX-030257">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -1073,8 +1073,10 @@ auth.onAuthStateChanged(async user=>{
     await carregarPerfilUsuario();
     // Migra obras sem user_id (executa uma vez, sem impacto se já migradas)
     setTimeout(()=>migrarObrasUserID(), 1000);
-    // Inicializa UI mobile após login e dados carregados
-    setTimeout(()=>{ initMobileUI(); updateMobileNav(); syncObraSelectMobile(); injetarCSSQuick(); }, 300);
+    // Inicializa UI mobile após login — múltiplas tentativas para garantir
+    setTimeout(()=>{ initMobileUI(); syncObraSelectMobile(); }, 300);
+    setTimeout(()=>{ initMobileUI(); syncObraSelectMobile(); }, 800);
+    setTimeout(()=>{ initMobileUI(); syncObraSelectMobile(); }, 1500);
     // Carrega dados da empresa para usar nos relatórios
     db.collection('empresa').doc('config').get().then(s=>{ if(s.exists) EMPRESA=s.data(); }).catch(()=>{});
     setCtx('obra');
@@ -5405,7 +5407,21 @@ const isMobile = () => window.innerWidth < 768;
 
 // Detecta mobile e ajusta UI ao carregar/redimensionar
 function initMobileUI(){
-  if(!isMobile()) return;
+  // Força aplicação mobile em telas < 768px
+  const mobile = window.innerWidth < 768;
+  console.log('[MOBILE] initMobileUI:', mobile ? 'MOBILE' : 'DESKTOP', window.innerWidth + 'px');
+  if(!mobile) return;
+
+  // Garante que elementos mobile estão visíveis
+  const ctxBar = document.getElementById('mobile-ctx-bar');
+  const obraBar = document.getElementById('mobile-obra-bar');
+  const bottomNav = document.getElementById('mobile-bottom-nav');
+  const fab = document.getElementById('mobile-fab');
+
+  if(ctxBar) ctxBar.style.display = 'flex';
+  if(obraBar) obraBar.classList.add('visible');
+  if(bottomNav) bottomNav.style.display = 'flex';
+  if(fab) fab.classList.add('visible');
 
   // Sincroniza select de obra mobile com o desktop
   const selD = document.getElementById('obra-select');
@@ -5416,6 +5432,11 @@ function initMobileUI(){
     selD.onchange = (e) => { trocarObra(e.target.value); selM.value = e.target.value; };
     selM.onchange = (e) => { trocarObra(e.target.value); selD.value = e.target.value; };
   }
+
+  // Injeta CSS dinâmico dos botões rápidos
+  injetarCSSQuick();
+  updateMobileNav();
+  updateMobileFAB();
 }
 
 // Observa mudanças no select desktop e sincroniza com mobile
@@ -6174,6 +6195,24 @@ Se não conseguir ler algum campo, use null.`
     toast('Não foi possível ler a nota. Tente uma foto mais nítida.', 'err');
   }
 }
+// Inicialização mobile ao carregar página
+document.addEventListener('DOMContentLoaded', () => {
+  if(window.innerWidth < 768){
+    // Força display dos elementos mobile imediatamente
+    const els = {
+      'mobile-ctx-bar':  'flex',
+      'mobile-bottom-nav': 'flex',
+    };
+    Object.entries(els).forEach(([id, disp]) => {
+      const el = document.getElementById(id);
+      if(el) el.style.display = disp;
+    });
+    const obraBar = document.getElementById('mobile-obra-bar');
+    if(obraBar) obraBar.classList.add('visible');
+    console.log('[MOBILE] DOMContentLoaded: mobile detectado', window.innerWidth + 'px');
+  }
+});
+
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') fecharModal();
